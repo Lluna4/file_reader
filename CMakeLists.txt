@@ -6,4 +6,5 @@ set(CMAKE_CXX_STANDARD 23)
 add_library(file_read STATIC
         file_deserialising.h
         buffer.cpp
-        buffer.h)
+        buffer.h
+        file_read.h)

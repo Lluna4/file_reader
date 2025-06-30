@@ -17,11 +17,24 @@ class file_reader
 		}
 
 		template<typename ...T>
-		std::tuple<T...> read_from_tuple(std::tuple<T...> in)
+		std::tuple<T...> read_from_tuple(std::tuple<T...> &in)
 		{
-			constexpr std::size_t size_tuple = std::tuple_size_v<decltype(in)>;
+			constexpr std::size_t size_tuple = sizeof...(T);
 			int size = 0;
-			const_for_<size_tuple>([&](auto i){size += sizeof(std::get<i.value>(in));});
+			std::array<size_t, size_tuple> sizes;
+			const_for_<size_tuple>([&](auto i)
+			{
+				if (typeid(std::get<i.value>(in)) == typeid(buffer))
+				{
+					size += std::get<i.value>(in).size;
+					sizes[i.value] = std::get<i.value>(in).size;
+				}
+				else
+				{
+					size += sizeof(std::get<i.value>(in));
+					sizes[i.value] = sizeof(std::get<i.value>(in));
+				}
+			});
 			if (size > buf.size)
 			{
 				int extra_size = 0;
@@ -47,7 +60,7 @@ class file_reader
 			parsing_buffer par_buf(buf);
 			par_buf.point = buf.data;
 			par_buf.consumed_size = 0;
-			read_comp(size_tuple, par_buf, in);
+			read_comp(size_tuple, par_buf, in, sizes);
 			buf.remove(0, size);
 			return in;
 		}

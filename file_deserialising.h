@@ -2,10 +2,12 @@
 #include <tuple>
 #include <cstring>
 #include <print>
+#include <type_traits>
 #include "buffer.h"
+#define read_comp(size, ptr, t, sizes) const_for_<size>([&](auto i){std::get<i.value>(t) = read_var<std::tuple_element_t<i.value, std::remove_cvref_t<decltype(t)>>>::call(&ptr, sizes[i.value]);});
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
-#define read_comp(size, ptr, t) const_for_<size>([&](auto i){std::get<i.value>(t) = read_var<std::tuple_element_t<i.value, decltype(t)>>::call(&ptr);});
+
 
 
 #define htobe16(x) OSSwapHostToBigInt16(x)
@@ -35,13 +37,13 @@ struct parsing_buffer
 };
 
 template <typename T>
-static T read_type(char *data)
+static T read_type(char *data, size_t size)
 {
 	T a;
 
-	std::memcpy(&a, data, sizeof(T));
+	std::memcpy(&a, data, size);
 
-	switch (sizeof(T))
+	switch (size)
 	{
 		case 1:
 			break;
@@ -61,40 +63,50 @@ static T read_type(char *data)
 }
 
 template <>
-float read_type<float>(char *data)
+float read_type<float>(char *data, size_t size)
 {
 	uint32_t num_as_uint32;
 	float num;
 
-	memcpy(&num_as_uint32, data, sizeof(uint32_t));
+	memcpy(&num_as_uint32, data, size);
 	num_as_uint32 = be32toh(num_as_uint32);
-	memcpy(&num, &num_as_uint32, sizeof(float));
+	memcpy(&num, &num_as_uint32, size);
 
 	return num;
 }
 
 template <>
-double read_type<double>(char *data)
+double read_type<double>(char *data, size_t size)
 {
 	uint64_t num_as_uint64;
 	double num;
 
-	memcpy(&num_as_uint64, data, sizeof(uint64_t));
+	memcpy(&num_as_uint64, data, size);
 	num_as_uint64 = be64toh(num_as_uint64);
-	memcpy(&num, &num_as_uint64, sizeof(double));
+	memcpy(&num, &num_as_uint64, size);
 
 	return num;
 }
 
+template<>
+buffer read_type<buffer>(char *data, size_t size)
+{
+	buffer ret;
+	ret.allocated = size + 1;
+	ret.size = size;
+	ret.data = (char *)malloc(size * sizeof(char) + 1);
+
+	return ret;
+}
 
 template<typename T>
 struct read_var
 {
-	static T call(parsing_buffer* v)
+	static T call(parsing_buffer* v, size_t size)
 	{
-		if (sizeof(T) + v->consumed_size > v->buf.size)
+		if (size + v->consumed_size > v->buf.size)
 			return T{};
-		T ret = read_type<T>(v->point);
+		T ret = read_type<T>(v->point, size);
 		v->point += sizeof(T);
 		v->consumed_size += sizeof(T);
 		return ret;

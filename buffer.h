@@ -7,8 +7,8 @@
 struct buffer
 {
 	char *data;
-	int size;
-	int allocated;
+	size_t size;
+	size_t allocated;
 
 	void write(char *data_in, int data_size);
 	void remove(int offset, int remove_size);
