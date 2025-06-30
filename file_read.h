@@ -17,14 +17,14 @@ class file_reader
 		}
 
 		template<typename ...T>
-		std::tuple<T...> read_from_tuple(std::tuple<T...> &in)
+		void read_from_tuple(std::tuple<T...> &in)
 		{
 			constexpr std::size_t size_tuple = sizeof...(T);
 			int size = 0;
 			std::array<size_t, size_tuple> sizes;
 			const_for_<size_tuple>([&](auto i)
 			{
-				if (typeid(std::get<i.value>(in)) == typeid(buffer))
+				if constexpr (typeid(std::get<i.value>(in)) == typeid(buffer))
 				{
 					size += std::get<i.value>(in).size;
 					sizes[i.value] = std::get<i.value>(in).size;
@@ -62,7 +62,6 @@ class file_reader
 			par_buf.consumed_size = 0;
 			read_comp(size_tuple, par_buf, in, sizes);
 			buf.remove(0, size);
-			return in;
 		}
 		buffer buf;
 		int fd;

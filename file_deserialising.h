@@ -4,7 +4,7 @@
 #include <print>
 #include <type_traits>
 #include "buffer.h"
-#define read_comp(size, ptr, t, sizes) const_for_<size>([&](auto i){std::get<i.value>(t) = read_var<std::tuple_element_t<i.value, std::remove_cvref_t<decltype(t)>>>::call(&ptr, sizes[i.value]);});
+#define read_comp(size, ptr, t, sizes) const_for_<size>([&](auto i){read_var<std::tuple_element_t<i.value, std::remove_cvref_t<decltype(t)>>>::call(std::get<i.value>(t), &ptr, sizes[i.value]);});
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
 
@@ -37,79 +37,65 @@ struct parsing_buffer
 };
 
 template <typename T>
-static T read_type(char *data, size_t size)
+static void read_type(T& val, char *data, size_t size)
 {
-	T a;
-
-	std::memcpy(&a, data, size);
-
 	switch (size)
 	{
 		case 1:
 			break;
 		case 2:
-			a = be16toh(a);
+			val = be16toh(val);
 			break;
 		case 4:
-			a = be32toh(a);
+			val = be32toh(val);
 			break;
 		case 8:
-			a = be64toh(a);
+			val = be64toh(val);
 			break;
 		default:
 			std::println("This integer is not supported!");
 	}
-	return a;
 }
 
 template <>
-float read_type<float>(char *data, size_t size)
+void read_type<float>(float &val, char *data, size_t size)
 {
 	uint32_t num_as_uint32;
-	float num;
 
 	memcpy(&num_as_uint32, data, size);
 	num_as_uint32 = be32toh(num_as_uint32);
-	memcpy(&num, &num_as_uint32, size);
-
-	return num;
+	memcpy(&val, &num_as_uint32, size);
 }
 
 template <>
-double read_type<double>(char *data, size_t size)
+void read_type<double>(double &val, char *data, size_t size)
 {
 	uint64_t num_as_uint64;
-	double num;
 
 	memcpy(&num_as_uint64, data, size);
 	num_as_uint64 = be64toh(num_as_uint64);
-	memcpy(&num, &num_as_uint64, size);
-
-	return num;
+	memcpy(&val, &num_as_uint64, size);
 }
 
 template<>
-buffer read_type<buffer>(char *data, size_t size)
+void read_type<buffer>(buffer &val, char *data, size_t size)
 {
-	buffer ret;
-	ret.allocated = size + 1;
-	ret.size = size;
-	ret.data = (char *)malloc(size * sizeof(char) + 1);
-
-	return ret;
+	val.allocated = size + 1;
+	val.size = size;
+	val.data = (char *)malloc(size * sizeof(char) + 1);
+	std::memcpy(val.data, data, size);
 }
 
 template<typename T>
 struct read_var
 {
-	static T call(parsing_buffer* v, size_t size)
+	static void call(T& val, parsing_buffer* v, size_t size)
 	{
 		if (size + v->consumed_size > v->buf.size)
-			return T{};
-		T ret = read_type<T>(v->point, size);
-		v->point += sizeof(T);
-		v->consumed_size += sizeof(T);
-		return ret;
+			return ;
+		read_type<T>(val, v->point, size);
+		v->point += size;
+		v->consumed_size += size;
 	}
 };
 
