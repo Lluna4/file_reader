@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <cstring>
-#define BUFFER_SIZE 1092
+#define BUFFER_SIZE 1024
 
 struct buffer
 {

@@ -3,8 +3,7 @@ project(file_read)
 
 set(CMAKE_CXX_STANDARD 23)
 
-add_library(file_read STATIC file_read.cpp
-        file_deserialising.cpp
+add_library(file_read STATIC
         file_deserialising.h
         buffer.cpp
         buffer.h)

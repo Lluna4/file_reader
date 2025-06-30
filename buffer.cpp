@@ -10,9 +10,9 @@ void buffer::write(char *data_in, int data_size)
 		{
 			throw std::runtime_error("Allocation failed");
 		}
-		std::memcpy(&data[size], data_in, data_size);
-		size += data_size;
 	}
+	std::memcpy(&data[size], data_in, data_size);
+	size += data_size;
 }
 
 void buffer::remove(int offset, int remove_size)
