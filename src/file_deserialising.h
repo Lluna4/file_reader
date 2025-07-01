@@ -4,7 +4,7 @@
 #include <print>
 #include <type_traits>
 #include "buffer.h"
-#define read_comp(size, ptr, t, sizes) const_for_<size>([&](auto i){read_var<std::tuple_element_t<i.value, std::remove_cvref_t<decltype(t)>>>::call(std::get<i.value>(t), &ptr, sizes[i.value]);});
+#define read_comp(size, ptr, t) const_for_<size>([&](auto i){read_var<std::tuple_element_t<i.value, std::remove_cvref_t<decltype(t)>>>::call(std::get<i.value>(t), &ptr);});
 #ifdef __APPLE__
 #include <libkern/OSByteOrder.h>
 
@@ -37,9 +37,10 @@ struct parsing_buffer
 };
 
 template <typename T>
-static void read_type(T& val, char *data, size_t size)
+static void read_type(T& val, char *data)
 {
-	switch (size)
+	std::memcpy(&val, data, sizeof(T));
+	switch (sizeof(T))
 	{
 		case 1:
 			break;
@@ -58,42 +59,46 @@ static void read_type(T& val, char *data, size_t size)
 }
 
 template <>
-void read_type<float>(float &val, char *data, size_t size)
+inline void read_type<float>(float &val, char *data)
 {
 	uint32_t num_as_uint32;
 
-	memcpy(&num_as_uint32, data, size);
+	memcpy(&num_as_uint32, data, sizeof(float));
 	num_as_uint32 = be32toh(num_as_uint32);
-	memcpy(&val, &num_as_uint32, size);
+	memcpy(&val, &num_as_uint32, sizeof(float));
 }
 
 template <>
-void read_type<double>(double &val, char *data, size_t size)
+inline void read_type<double>(double &val, char *data)
 {
 	uint64_t num_as_uint64;
 
-	memcpy(&num_as_uint64, data, size);
+	memcpy(&num_as_uint64, data, sizeof(double));
 	num_as_uint64 = be64toh(num_as_uint64);
-	memcpy(&val, &num_as_uint64, size);
+	memcpy(&val, &num_as_uint64, sizeof(double));
 }
 
 template<>
-void read_type<buffer>(buffer &val, char *data, size_t size)
+inline void read_type<buffer>(buffer &val, char *data)
 {
-	val.allocated = size + 1;
-	val.size = size;
-	val.data = (char *)malloc(size * sizeof(char) + 1);
-	std::memcpy(val.data, data, size);
+	val.allocated = val.size + 1;
+	val.data = (char *)malloc(val.size * sizeof(char) + 1);
+	std::memcpy(val.data, data, val.size);
 }
 
 template<typename T>
 struct read_var
 {
-	static void call(T& val, parsing_buffer* v, size_t size)
+	static void call(T& val, parsing_buffer* v)
 	{
+		int size = 0;
+		if (typeid(T) == typeid(buffer))
+			size = val.size;
+		else
+			size = sizeof(T);
 		if (size + v->consumed_size > v->buf.size)
 			return ;
-		read_type<T>(val, v->point, size);
+		read_type<T>(val, v->point);
 		v->point += size;
 		v->consumed_size += size;
 	}
