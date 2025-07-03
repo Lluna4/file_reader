@@ -92,12 +92,19 @@ struct read_var
 	static void call(T& val, parsing_buffer* v)
 	{
 		int size = 0;
-		if (typeid(T) == typeid(buffer))
+		if constexpr (typeid(T) == typeid(buffer))
 			size = val.size;
 		else
 			size = sizeof(T);
 		if (size + v->consumed_size > v->buf.size)
-			return ;
+		{
+			if constexpr (typeid(T) == typeid(buffer))
+			{
+				val.size = v->buf.size;
+			}
+			else
+				return ;
+		}
 		read_type<T>(val, v->point);
 		v->point += size;
 		v->consumed_size += size;

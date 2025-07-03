@@ -22,19 +22,49 @@ class file_reader
 			buf.allocated = 0;
 			buf.data = nullptr;
 			file_size = lseek(fd, 0, SEEK_END);
-			lseek(fd, 0, SEEK_SET);
+			if (file_size == -1)
+			{
+				std::println("lseek failed {}", strerror(errno));
+				throw std::runtime_error("lseek failed");
+			}
+			if (lseek(fd, 0, SEEK_SET) == -1)
+			{
+				std::println("lseek failed {}", strerror(errno));
+				throw std::runtime_error("lseek failed");
+			}
 			file_size_remaining = file_size;
 		}
 
 		file_reader(std::string path)
 		{
 			fd = open(path.c_str(), O_RDONLY);
+			if (fd == -1)
+			{
+				std::println("Error opening the file {}", strerror(errno));
+				throw std::runtime_error("Error opening file");
+			}
 			buf.size = 0;
 			buf.allocated = 0;
 			buf.data = nullptr;
 			file_size = lseek(fd, 0, SEEK_END);
-			lseek(fd, 0, SEEK_SET);
+			if (file_size == -1)
+			{
+				std::println("lseek failed {}", strerror(errno));
+				throw std::runtime_error("lseek failed");
+			}
+			if (lseek(fd, 0, SEEK_SET) == -1)
+			{
+				std::println("lseek failed {}", strerror(errno));
+				throw std::runtime_error("lseek failed");
+			}
 			file_size_remaining = file_size;
+		}
+
+		file_reader(const file_reader&) = delete;
+		file_reader & operator=(const file_reader &) = delete;
+		~file_reader()
+		{
+			close(fd);
 		}
 
 		template<typename ...T>
@@ -46,6 +76,7 @@ class file_reader
 			constexpr std::size_t size_tuple = sizeof...(T);
 			int size = 0;
 			int extra_size = 0;
+			size_t total_read_size = 0;
 			const_for_<size_tuple>([&](auto i)
 			{
 				if constexpr (typeid(std::get<i.value>(in)) == typeid(buffer))
@@ -65,15 +96,29 @@ class file_reader
 					ret = READ_INCOMPLETE;
 				}
 				char *new_read = (char *)calloc(size + extra_size, sizeof(char));
-				size_t res = read(fd, new_read, size + extra_size);
-				if (res != size + extra_size)
+				total_read_size = size + extra_size;
+				size_t read_done = 0;
+				size_t res = 0;
+				while (read_done != size + extra_size)
 				{
-					free(new_read);
-					std::println("Read error {}", strerror(errno));
-					throw std::runtime_error("Read failed!");
+					res = read(fd, &new_read[read_done], (size + extra_size) - read_done);
+					if (res == -1)
+					{
+						free(new_read);
+						std::println("Read error {}", strerror(errno));
+						throw std::runtime_error("Read failed!");
+					}
+					if (res == 0)
+					{
+						if (read_done != size + extra_size)
+							ret = READ_INCOMPLETE;
+						total_read_size = read_done;
+						break;
+					}
+					read_done += res;
 				}
-				buf.write(new_read, size + extra_size);
-				file_size_remaining -= size + extra_size;
+				buf.write(new_read, total_read_size);
+				file_size_remaining -= total_read_size;
 				free(new_read);
 			}
 			parsing_buffer par_buf(buf);
@@ -81,8 +126,9 @@ class file_reader
 			par_buf.consumed_size = 0;
 			read_comp(size_tuple, par_buf, in);
 			buf.remove(0, size);
-			return std::make_pair(size + extra_size, ret);
+			return std::make_pair(total_read_size, ret);
 		}
+	private:
 		buffer buf;
 		int fd;
 		off_t file_size;
