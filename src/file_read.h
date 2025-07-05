@@ -71,7 +71,7 @@ class file_reader
 		std::pair<size_t, RESULT> read_from_tuple(std::tuple<T...> &in)
 		{
 			RESULT ret = READ_CORRECT;
-			if (file_size_remaining <= 0)
+			if (file_size_remaining <= 0 && buf.size <= 0)
 				return std::make_pair(0, READ_FILE_ENDED);
 			constexpr std::size_t size_tuple = sizeof...(T);
 			int size = 0;
@@ -102,6 +102,7 @@ class file_reader
 				while (read_done != size + extra_size)
 				{
 					res = read(fd, &new_read[read_done], (size + extra_size) - read_done);
+					read_done += res;
 					if (res == -1)
 					{
 						free(new_read);
@@ -115,18 +116,21 @@ class file_reader
 						total_read_size = read_done;
 						break;
 					}
-					read_done += res;
 				}
 				buf.write(new_read, total_read_size);
 				file_size_remaining -= total_read_size;
 				free(new_read);
 			}
+			size_t prev_size = buf.size;
 			parsing_buffer par_buf(buf);
 			par_buf.point = buf.data;
+			if (prev_size > size)
+				par_buf.buf.size = size;
 			par_buf.consumed_size = 0;
 			read_comp(size_tuple, par_buf, in);
+			buf.size = prev_size;
 			buf.remove(0, size);
-			return std::make_pair(total_read_size, ret);
+			return std::make_pair(size, ret);
 		}
 	private:
 		buffer buf;
