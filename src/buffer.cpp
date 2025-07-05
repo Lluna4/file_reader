@@ -4,7 +4,7 @@ void buffer::write(char *data_in, int data_size)
 {
 	if (data_size > allocated - size)
 	{
-		allocated = allocated + (allocated - (size + data_size)) + BUFFER_SIZE;
+		allocated += (size + data_size) + BUFFER_SIZE;
 		data = (char *)realloc(data, allocated);
 		if (!data)
 		{
