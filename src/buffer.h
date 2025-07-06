@@ -9,8 +9,9 @@ struct buffer
 	char *data;
 	size_t size;
 	size_t allocated;
+	int allocations;
 
-	void write(char *data_in, int data_size);
+	void write(char *data_in, size_t data_size);
 	void remove(int offset, int remove_size);
 
 	~buffer()

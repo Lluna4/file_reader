@@ -1,11 +1,12 @@
 #include "buffer.h"
 
-void buffer::write(char *data_in, int data_size)
+void buffer::write(char *data_in, size_t data_size)
 {
 	if (data_size > allocated - size)
 	{
 		allocated += (size + data_size) + BUFFER_SIZE;
 		data = (char *)realloc(data, allocated);
+		allocations++;
 		if (!data)
 		{
 			throw std::runtime_error("Allocation failed");
