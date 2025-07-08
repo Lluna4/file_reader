@@ -82,7 +82,7 @@ template<>
 inline void read_type<buffer>(buffer &val, char *data)
 {
 	val.allocated = val.size + 1;
-	val.data = (char *)malloc(val.size * sizeof(char) + 1);
+	val.data = (char *)calloc(val.size + 1,sizeof(char));
 	std::memcpy(val.data, data, val.size);
 }
 

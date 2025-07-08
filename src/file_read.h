@@ -15,7 +15,7 @@ enum RESULT
 class file_reader
 {
 	public:
-		file_reader(int file_fd)
+		explicit file_reader(int file_fd)
 			:fd(file_fd)
 		{
 			buf.size = 0;
@@ -66,7 +66,7 @@ class file_reader
 		{
 			close(fd);
 		}
-
+		int extra_size = 0;
 		template<typename ...T>
 		std::pair<size_t, RESULT> read_from_tuple(std::tuple<T...> &in)
 		{
@@ -75,7 +75,7 @@ class file_reader
 				return std::make_pair(0, READ_FILE_ENDED);
 			constexpr std::size_t size_tuple = sizeof...(T);
 			int size = 0;
-			int extra_size = 0;
+			
 			size_t total_read_size = 0;
 			const_for_<size_tuple>([&](auto i)
 			{
@@ -86,22 +86,24 @@ class file_reader
 			});
 			if (size > buf.size)
 			{
-				if (size + BUFFER_SIZE <= file_size_remaining)
+				int extra_to_read = size - buf.size;
+				int extra_size = 0;
+				if (extra_to_read + BUFFER_SIZE <= file_size_remaining)
 				{
 					extra_size = BUFFER_SIZE;
 				}
-				else if (size > file_size_remaining)
+				else if (file_size_remaining + buf.size > file_size_remaining + buf.size)
 				{
-					extra_size = file_size_remaining - size;
+					extra_to_read = file_size_remaining + buf.size;
 					ret = READ_INCOMPLETE;
 				}
 				char *new_read = (char *)calloc(size + extra_size, sizeof(char));
-				total_read_size = size + extra_size;
+				total_read_size = extra_to_read + extra_size;
 				size_t read_done = 0;
 				size_t res = 0;
-				while (read_done != size + extra_size)
+				while (read_done != extra_to_read + extra_size)
 				{
-					res = read(fd, &new_read[read_done], (size + extra_size) - read_done);
+					res = read(fd, &new_read[read_done], (extra_to_read + extra_size) - read_done);
 					read_done += res;
 					if (res == -1)
 					{
@@ -111,9 +113,10 @@ class file_reader
 					}
 					if (res == 0)
 					{
-						if (read_done != size + extra_size)
+						if (read_done != extra_to_read + extra_size)
 							ret = READ_INCOMPLETE;
 						total_read_size = read_done;
+						size = total_read_size;
 						break;
 					}
 				}
@@ -129,6 +132,58 @@ class file_reader
 			par_buf.consumed_size = 0;
 			read_comp(size_tuple, par_buf, in);
 			buf.size = prev_size;
+			buf.remove(0, size);
+			return std::make_pair(size, ret);
+		}
+
+		template <typename T>
+		std::pair<size_t, RESULT> read_buffer(T *buffer, int size)
+		{
+			RESULT ret = READ_CORRECT;
+			if (file_size_remaining <= 0 && buf.size <= 0)
+				return std::make_pair(0, READ_FILE_ENDED);
+			size_t total_read_size = 0;
+			if (size > buf.size)
+			{
+				int extra_to_read = size - buf.size;
+				int extra_size = 0;
+				if (extra_to_read + BUFFER_SIZE <= file_size_remaining)
+				{
+					extra_size = BUFFER_SIZE;
+				}
+				else if (file_size_remaining + buf.size > file_size_remaining + buf.size)
+				{
+					extra_to_read = file_size_remaining + buf.size;
+					ret = READ_INCOMPLETE;
+				}
+				char *new_read = (char *)calloc(size + extra_size, sizeof(char));
+				total_read_size = extra_to_read + extra_size;
+				size_t read_done = 0;
+				size_t res = 0;
+				while (read_done != extra_to_read + extra_size)
+				{
+					res = read(fd, &new_read[read_done], (extra_to_read + extra_size) - read_done);
+					read_done += res;
+					if (res == -1)
+					{
+						free(new_read);
+						std::println("Read error {}", strerror(errno));
+						throw std::runtime_error("Read failed!");
+					}
+					if (res == 0)
+					{
+						if (read_done != extra_to_read + extra_size)
+							ret = READ_INCOMPLETE;
+						total_read_size = read_done;
+						size = total_read_size;
+						break;
+					}
+				}
+				buf.write(new_read, total_read_size);
+				file_size_remaining -= total_read_size;
+				free(new_read);
+			}
+			std::memcpy(buffer, buf.data, size);
 			buf.remove(0, size);
 			return std::make_pair(size, ret);
 		}

@@ -6,6 +6,13 @@
 
 struct buffer
 {
+	buffer()
+	{
+		data = nullptr;
+		size = 0;
+		allocated = 0;
+		allocations = 0;
+	}
 	char *data;
 	size_t size;
 	size_t allocated;
@@ -15,14 +22,24 @@ struct buffer
 	void remove(int offset, int remove_size);
 	void allocate(size_t s);
 
+	buffer(const buffer&) = delete;
+	buffer & operator=(const buffer &) = delete;
 	~buffer()
 	{
-		free(data);
+		if (allocated > 0)
+			free(data);
 	}
 };
 
 struct buffer_unsigned
 {
+	buffer_unsigned()
+	{
+		data = nullptr;
+		size = 0;
+		allocated = 0;
+		allocations = 0;
+	}
 	unsigned char *data;
 	size_t size;
 	size_t allocated;
@@ -32,8 +49,11 @@ struct buffer_unsigned
 	void remove(int offset, int remove_size);
 	void allocate(size_t s);
 
+	buffer_unsigned(const buffer_unsigned&) = delete;
+	buffer_unsigned & operator=(const buffer_unsigned &) = delete;
 	~buffer_unsigned()
 	{
-		free(data);
+		if (allocated > 0)
+			free(data);
 	}
 };
