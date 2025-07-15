@@ -50,7 +50,6 @@ struct buffer_unsigned
 	void allocate(size_t s);
 
 	buffer_unsigned(const buffer_unsigned&) = delete;
-	buffer_unsigned & operator=(const buffer_unsigned &) = delete;
 	~buffer_unsigned()
 	{
 		if (allocated > 0)
