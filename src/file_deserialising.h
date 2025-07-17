@@ -28,10 +28,10 @@
 
 struct parsing_buffer
 {
-	parsing_buffer(buffer &b)
+	parsing_buffer(buffer<char> &b)
 	:buf(b)
 	{}
-	buffer &buf;
+	buffer<char> &buf;
 	char *point;
 	int consumed_size;
 };
@@ -79,7 +79,7 @@ inline void read_type<double>(double &val, char *data)
 }
 
 template<>
-inline void read_type<buffer>(buffer &val, char *data)
+inline void read_type<buffer<char>>(buffer<char> &val, char *data)
 {
 	val.allocated = val.size + 1;
 	val.data = (char *)calloc(val.size + 1,sizeof(char));
@@ -92,13 +92,13 @@ struct read_var
 	static void call(T& val, parsing_buffer* v)
 	{
 		int size = 0;
-		if constexpr (typeid(T) == typeid(buffer))
+		if constexpr (typeid(T) == typeid(buffer<char>))
 			size = val.size;
 		else
 			size = sizeof(T);
 		if (size + v->consumed_size > v->buf.size)
 		{
-			if constexpr (typeid(T) == typeid(buffer))
+			if constexpr (typeid(T) == typeid(buffer<char>))
 			{
 				val.size = v->buf.size;
 			}

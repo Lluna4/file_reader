@@ -79,7 +79,7 @@ class file_reader
 			size_t total_read_size = 0;
 			const_for_<size_tuple>([&](auto i)
 			{
-				if constexpr (typeid(std::get<i.value>(in)) == typeid(buffer))
+				if constexpr (typeid(std::get<i.value>(in)) == typeid(buffer<char>))
 					size += std::get<i.value>(in).size;
 				else
 					size += sizeof(std::get<i.value>(in));
@@ -188,7 +188,7 @@ class file_reader
 			return std::make_pair(size, ret);
 		}
 	private:
-		buffer buf;
+		buffer<char> buf;
 		int fd;
 		off_t file_size;
 		off_t file_size_remaining;
