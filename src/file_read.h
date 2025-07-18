@@ -5,15 +5,17 @@
 #include <print>
 #include <fcntl.h>
 
-enum RESULT
+namespace file_reader
 {
-	READ_CORRECT, //read was as expected
-	READ_INCOMPLETE, //read is incomplete (probably because of the file ending)
-	READ_FILE_ENDED //cannot read because there's not more file to read
-};
+	enum RESULT
+	{
+		READ_CORRECT, //read was as expected
+		READ_INCOMPLETE, //read is incomplete (probably because of the file ending)
+		READ_FILE_ENDED //cannot read because there's not more file to read
+	};
 
-class file_reader
-{
+	class file_reader
+	{
 	public:
 		explicit file_reader(int file_fd)
 			:fd(file_fd)
@@ -75,7 +77,7 @@ class file_reader
 				return std::make_pair(0, READ_FILE_ENDED);
 			constexpr std::size_t size_tuple = sizeof...(T);
 			int size = 0;
-			
+
 			size_t total_read_size = 0;
 			const_for_<size_tuple>([&](auto i)
 			{
@@ -192,4 +194,5 @@ class file_reader
 		int fd;
 		off_t file_size;
 		off_t file_size_remaining;
-};
+	};
+}
