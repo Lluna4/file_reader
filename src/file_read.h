@@ -4,14 +4,16 @@
 #include <errno.h>
 #include <print>
 #include <fcntl.h>
+#include <expected>
 
 namespace file_reader
 {
-	enum RESULT
+	enum class RESULT
 	{
 		READ_CORRECT, //read was as expected
 		READ_INCOMPLETE, //read is incomplete (probably because of the file ending)
-		READ_FILE_ENDED //cannot read because there's not more file to read
+		READ_FILE_ENDED, //cannot read because there's not more file to read
+		READ_FAILED
 	};
 
 	class file_reader
@@ -70,11 +72,11 @@ namespace file_reader
 		}
 		int extra_size = 0;
 		template<typename ...T>
-		std::pair<size_t, RESULT> read_from_tuple(std::tuple<T...> &in)
+		std::expected<size_t, RESULT> read_from_tuple(std::tuple<T...> &in)
 		{
-			RESULT ret = READ_CORRECT;
+			RESULT ret = RESULT::READ_CORRECT;
 			if (file_size_remaining <= 0 && buf.size <= 0)
-				return std::make_pair(0, READ_FILE_ENDED);
+				return std::unexpected( RESULT::READ_FILE_ENDED);
 			constexpr std::size_t size_tuple = sizeof...(T);
 			int size = 0;
 
@@ -97,7 +99,7 @@ namespace file_reader
 				else if (file_size_remaining + buf.size > file_size_remaining + buf.size)
 				{
 					extra_to_read = file_size_remaining + buf.size;
-					ret = READ_INCOMPLETE;
+					ret = RESULT::READ_INCOMPLETE;
 				}
 				char *new_read = (char *)calloc(size + extra_size, sizeof(char));
 				total_read_size = extra_to_read + extra_size;
@@ -116,7 +118,7 @@ namespace file_reader
 					if (res == 0)
 					{
 						if (read_done != extra_to_read + extra_size)
-							ret = READ_INCOMPLETE;
+							ret = RESULT::READ_INCOMPLETE;
 						total_read_size = read_done;
 						size = total_read_size;
 						break;
@@ -135,15 +137,15 @@ namespace file_reader
 			read_comp(size_tuple, par_buf, in);
 			buf.size = prev_size;
 			buf.remove(0, size);
-			return std::make_pair(size, ret);
+			return size;
 		}
 
 		template <typename T>
-		std::pair<size_t, RESULT> read_buffer(T *buffer, int size)
+		std::expected<size_t, RESULT> read_buffer(T *buffer, int size)
 		{
-			RESULT ret = READ_CORRECT;
+			RESULT ret = RESULT::READ_CORRECT;
 			if (file_size_remaining <= 0 && buf.size <= 0)
-				return std::make_pair(0, READ_FILE_ENDED);
+				return std::unexpected(RESULT::READ_FILE_ENDED);
 			size_t total_read_size = 0;
 			if (size > buf.size)
 			{
@@ -156,7 +158,7 @@ namespace file_reader
 				else if (file_size_remaining + buf.size > file_size_remaining + buf.size)
 				{
 					extra_to_read = file_size_remaining + buf.size;
-					ret = READ_INCOMPLETE;
+					ret = RESULT::READ_INCOMPLETE;
 				}
 				char *new_read = (char *)calloc(size + extra_size, sizeof(char));
 				total_read_size = extra_to_read + extra_size;
@@ -175,7 +177,7 @@ namespace file_reader
 					if (res == 0)
 					{
 						if (read_done != extra_to_read + extra_size)
-							ret = READ_INCOMPLETE;
+							ret = RESULT::READ_INCOMPLETE;
 						total_read_size = read_done;
 						size = total_read_size;
 						break;
@@ -187,7 +189,7 @@ namespace file_reader
 			}
 			std::memcpy(buffer, buf.data, size);
 			buf.remove(0, size);
-			return std::make_pair(size, ret);
+			return size;
 		}
 	private:
 		buffer<char> buf;
