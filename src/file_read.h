@@ -13,7 +13,9 @@ namespace file_reader
 		READ_CORRECT, //read was as expected
 		READ_INCOMPLETE, //read is incomplete (probably because of the file ending)
 		READ_FILE_ENDED, //cannot read because there's not more file to read
-		READ_FAILED
+		READ_FAILED,
+		FILE_DOESNT_EXIST,
+		FILE_LSEEK_FAIL
 	};
 
 	class file_reader
@@ -39,29 +41,14 @@ namespace file_reader
 			file_size_remaining = file_size;
 		}
 
-		file_reader(std::string path)
+		file_reader()
 		{
-			fd = open(path.c_str(), O_RDONLY);
-			if (fd == -1)
-			{
-				std::println("Error opening the file {}", strerror(errno));
-				throw std::runtime_error("Error opening file");
-			}
+			fd = 0;
 			buf.size = 0;
 			buf.allocated = 0;
 			buf.data = nullptr;
-			file_size = lseek(fd, 0, SEEK_END);
-			if (file_size == -1)
-			{
-				std::println("lseek failed {}", strerror(errno));
-				throw std::runtime_error("lseek failed");
-			}
-			if (lseek(fd, 0, SEEK_SET) == -1)
-			{
-				std::println("lseek failed {}", strerror(errno));
-				throw std::runtime_error("lseek failed");
-			}
-			file_size_remaining = file_size;
+			file_size_remaining = 0;
+			file_size = 0;
 		}
 
 		file_reader(const file_reader&) = delete;
@@ -71,6 +58,33 @@ namespace file_reader
 			close(fd);
 		}
 		int extra_size = 0;
+
+		std::expected<size_t, RESULT> open_file(const std::string &path)
+		{
+			fd = open(path.c_str(), O_RDONLY);
+			if (fd == -1)
+			{
+				std::println("Error opening the file {}", strerror(errno));
+				return std::unexpected(RESULT::FILE_DOESNT_EXIST);
+			}
+			buf.size = 0;
+			buf.allocated = 0;
+			buf.data = nullptr;
+			file_size = lseek(fd, 0, SEEK_END);
+			if (file_size == -1)
+			{
+				std::println("lseek failed {}", strerror(errno));
+				return std::unexpected(RESULT::FILE_LSEEK_FAIL);
+			}
+			if (lseek(fd, 0, SEEK_SET) == -1)
+			{
+				std::println("lseek failed {}", strerror(errno));
+				return std::unexpected(RESULT::FILE_LSEEK_FAIL);
+			}
+			file_size_remaining = file_size;
+			return file_size;
+		}
+
 		template<typename ...T>
 		std::expected<size_t, RESULT> read_from_tuple(std::tuple<T...> &in)
 		{
@@ -198,3 +212,29 @@ namespace file_reader
 		off_t file_size_remaining;
 	};
 }
+
+template <>
+struct std::formatter<file_reader::RESULT>
+{
+
+	constexpr auto parse(std::format_parse_context& ctx) {
+		return ctx.begin();
+	}
+
+	auto format(const file_reader::RESULT& id, std::format_context& ctx) const
+	{
+		if (id == file_reader::RESULT::FILE_DOESNT_EXIST)
+			return std::format_to(ctx.out(), "{}", "File doesn't exist");
+		if (id == file_reader::RESULT::READ_FAILED)
+			return std::format_to(ctx.out(), "{}", "Read failed");
+		if (id == file_reader::RESULT::FILE_LSEEK_FAIL)
+			return std::format_to(ctx.out(), "{}", "File lseek failed");
+		if (id == file_reader::RESULT::READ_CORRECT)
+			return std::format_to(ctx.out(), "{}", "Read correct");
+		if (id == file_reader::RESULT::READ_FILE_ENDED)
+			return std::format_to(ctx.out(), "{}", "File ended");
+		if (id == file_reader::RESULT::READ_INCOMPLETE)
+			return std::format_to(ctx.out(), "{}", "Read incomplete");
+		return std::format_to(ctx.out(), "{}", "Unknown error");
+	}
+};
